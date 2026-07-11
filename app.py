@@ -3,16 +3,14 @@ import pandas as pd
 import numpy as np
 import numpy_financial as npf
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import io
 import plotly.express as px
-import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
-# ۱. پیکربندی استایل بومی و فونت وزیرمتن با متن‌های مشکی و سایز ۱۲
+# ۱. پیکربندی استایل واکنش‌گرا (Responsive) با فونت وزیرمتن، مشکی و سایز ۱۲
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="سیستم مدلسازی مالی گالری طلا شیراز - نسخه ۲۰۲۶",
+    page_title="سیستم مدلسازی مالی گالری طلا شیراز",
     page_icon=None,
     layout="wide"
 )
@@ -20,6 +18,7 @@ st.set_page_config(
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;800&display=swap');
+    
     html, body, [data-testid="stAppViewContainer"], .stApp, p, span, div, label, input, select, textarea {
         direction: RTL !important;
         text-align: right !important;
@@ -27,10 +26,32 @@ st.markdown("""
         color: #000000 !important;
         font-size: 12px !important;
     }
-    .stMetricValue { font-size: 18px !important; font-weight: 700 !important; color: #000000 !important; }
-    h1 { font-family: 'Vazirmatn', sans-serif !important; font-weight: 800 !important; font-size: 20px !important; color: #000000 !important; }
-    h2 { font-family: 'Vazirmatn', sans-serif !important; font-weight: 700 !important; font-size: 16px !important; color: #000000 !important; }
-    h3 { font-family: 'Vazirmatn', sans-serif !important; font-weight: 600 !important; font-size: 14px !important; color: #000000 !important; }
+    
+    .stMetricValue { font-size: 16px !important; font-weight: 700 !important; color: #000000 !important; }
+    h1 { font-family: 'Vazirmatn', sans-serif !important; font-weight: 800 !important; font-size: 18px !important; color: #000000 !important; }
+    h2 { font-family: 'Vazirmatn', sans-serif !important; font-weight: 700 !important; font-size: 15px !important; color: #000000 !important; }
+    h3 { font-family: 'Vazirmatn', sans-serif !important; font-weight: 600 !important; font-size: 13px !important; color: #000000 !important; }
+
+    /* تنظیمات واکنش‌گرایی برای صفحه نمایش موبایل */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            padding-top: 1rem !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+        [data-testid="stColumn"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            margin-bottom: 0.75rem !important;
+        }
+        .stDataFrame, .stTable {
+            font-size: 10px !important;
+            overflow-x: auto !important;
+        }
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,7 +97,6 @@ class GoldBoutiqueEngine:
 
     @staticmethod
     def run_5_year_feasibility(total_capital, gold_price, inv_mix, daily_traffic, conversion_rate, avg_ticket_gram, monthly_rent, manager_salary, staff_salary, utilities_cost, marketing_monthly, inflation_rate):
-        # لیست کامل هزینه‌های اولیه (CAPEX)
         capex_setup = {
             "ودیعه و رهن تجاری ملک": monthly_rent * 20,
             "طراحی داخلی، دکوراسیون و نورپردازی تخصصی": 450000000,
@@ -104,7 +124,6 @@ class GoldBoutiqueEngine:
         cumulative_cashflow = -total_capital
         payback_month = None
         
-        # لیست کامل هزینه‌های ثابت و متغیر جاری ماهانه (OPEX)
         base_fixed_opex = monthly_rent + manager_salary + staff_salary + utilities_cost + marketing_monthly
         
         for m in range(1, 61):
@@ -205,21 +224,21 @@ if err_msg:
     st.error(err_msg)
 else:
     tab_costs, tab_dashboard, tab_inventory, tab_locations, tab_export = st.tabs([
-        "لیست کامل هزینه‌های اولیه ($\Sigma \text{ CAPEX}$) و جاری ($\Sigma \text{ OPEX}$)",
-        "داشبورد ارزیابی سرمایه ($\Sigma \text{ KPI}$)", 
-        "چیدمان ویترین و انبار طلا", 
-        "تحلیل لوکیشن شیراز",
-        "خروجی اکسل پروپوزال"
+        "هزینه‌های اولیه ($\Sigma \text{ CAPEX}$) و جاری ($\Sigma \text{ OPEX}$)",
+        "داشبورد ارزیابی ($\Sigma \text{ KPI}$)", 
+        "ویترین و انبار", 
+        "لوکیشن",
+        "اکسل"
     ])
     
     with tab_costs:
-        st.subheader("جدول جامع هزینه‌های راه‌اندازی اولیه ($\Sigma \text{ CAPEX}$)")
-        df_capex = pd.DataFrame(list(results["capex_table"].items()), columns=["شرح هزینه اولیه", "مبلغ (تومان)"])
+        st.subheader("هزینه‌های راه‌اندازی اولیه ($\Sigma \text{ CAPEX}$)")
+        df_capex = pd.DataFrame(list(results["capex_table"].items()), columns=["شرح هزینه", "مبلغ (تومان)"])
         st.dataframe(df_capex, use_container_width=True)
-        st.metric("جمع کل هزینه‌های ثابت اولیه ($\Sigma \text{ CAPEX}$)", f"{results['total_capex']:,.0f} تومان")
+        st.metric("جمع کل ($\Sigma \text{ CAPEX}$)", f"{results['total_capex']:,.0f} تومان")
         
         st.markdown("---")
-        st.subheader("جدول جامع هزینه‌های جاری ماهانه ($\Sigma \text{ OPEX}$ پایه)")
+        st.subheader("هزینه‌های جاری ماهانه ($\Sigma \text{ OPEX}$)")
         base_opex_dict = {
             "اجاره ماهانه ملک": rent_input,
             "حقوق مدیریت اجرایی": manager_salary,
@@ -227,19 +246,19 @@ else:
             "هزینه انرژی و شارژ": utilities_cost,
             "تبلیغات و بازاریابی ماهانه": marketing_monthly
         }
-        df_opex = pd.DataFrame(list(base_opex_dict.items()), columns=["شرح هزینه جاری ماهانه", "مبلغ ماهانه (تومان)"])
+        df_opex = pd.DataFrame(list(base_opex_dict.items()), columns=["شرح هزینه", "مبلغ ماهانه (تومان)"])
         st.dataframe(df_opex, use_container_width=True)
-        st.metric("جمع کل هزینه‌های جاری ماه اول ($\Sigma \text{ OPEX}$)", f"{results['base_opex']:,.0f} تومان")
+        st.metric("جمع کل ($\Sigma \text{ OPEX}$)", f"{results['base_opex']:,.0f} تومان")
 
     with tab_dashboard:
-        st.subheader("شاخص‌های ارزیابی اقتصادی طرح ($\mu, NPV, IRR$)")
+        st.subheader("شاخص‌های اقتصادی طرح ($\mu, NPV, IRR$)")
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("کل سرمایه ($\Sigma \text{ Capital}$)", f"{total_pool:,.0f} تومان")
+            st.metric("کل سرمایه", f"{total_pool:,.0f} تومان")
         with c2:
             st.metric("ارزش فعلی خالص ($NPV$)", f"{results['npv']:,.0f} تومان")
         with c3:
-            st.metric("بازده داخلی ($IRR$ سالانه)", f"{results['irr']:.1f}%")
+            st.metric("بازده داخلی ($IRR$)", f"{results['irr']:.1f}%")
         with c4:
             st.metric("دوره بازگشت", f"{results['payback']} ماه")
             
@@ -256,14 +275,13 @@ else:
             inv_data.append({
                 "دسته محصول": k,
                 "سهم وزنی (%)": v["weight_share"],
-                "وزن اختصاصی (گرم)": round(allocated_weight, 2),
-                "ارزش تامین (تومان)": round(allocated_cash)
+                "وزن (گرم)": round(allocated_weight, 2),
+                "ارزش (تومان)": round(allocated_cash)
             })
         st.dataframe(pd.DataFrame(inv_data), use_container_width=True)
 
     with tab_locations:
         st.subheader("ماتریس رتبه‌بندی مکان‌یابی شیراز")
-        df_locs = GoldBoutiqueEngine.run_5_year_feasibility.__func__ if hasattr(GoldBoutiqueEngine, 'calculate_location_matrix') else None
         df_locs_res = GoldBoutiqueEngine.calculate_location_matrix(rent_input, 10, 30.0, 5.0)
         st.dataframe(df_locs_res, use_container_width=True)
 
