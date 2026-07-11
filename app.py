@@ -1,24 +1,21 @@
 import streamlit as st
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 import io
 import pandas as pd
 
 # ۱. تنظیمات اولیه پروداکت دیزاین استریم‌لیت
 st.set_page_config(
-    page_title="پلتفرم هوشمند مدل‌سازی مالی گالری طلا",
+    page_title="پلتفرم جامع مدل‌سازی مالی و ارزیابی لوکیشن گالری طلا",
     page_icon="👑",
     layout="wide"
 )
 
-# ۲. تزریق فونت متن‌باز و استاندارد Vazirmatn همراه با تنظیمات سایز ۱۲ و رنگ مشکی
+# ۲. تزریق فونت متن‌باز Vazirmatn، سایز ۱۲ و رنگ مشکی خالص
 st.markdown("""
     <style>
-    /* وارد کردن فونت متن‌باز و استاندارد Vazirmatn از گوگل فونتس */
     @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap');
 
-    /* اعمال گلوبال فونت، سایز ۱۲ و رنگ مشکی برای تمامی بخش‌های اپلیکیشن */
     html, body, [data-testid="stAppViewContainer"], .stApp {
         direction: RTL !important;
         text-align: right !important;
@@ -28,19 +25,14 @@ st.markdown("""
         background-color: #F8F9FA;
     }
 
-    /* اعمال تنظیمات فونت، سایز ۱۲ و رنگ مشکی روی جداول تعاملی و ادیتور استریم‌لیت */
     .stDataFrame, div[data-testid="stDataFrameDataGird"], [role="gridcell"], th, td, input, select, textarea {
         font-family: 'Vazirmatn', sans-serif !important;
         font-size: 12px !important;
         color: #000000 !important;
     }
     
-    /* تنظیمات رنگ متن داخل سلول‌های در حال ویرایش جدول */
-    input[data-testid="stDataFrameDataGirdCellInput"] {
-        color: #000000 !important;
-    }
+    input[data-testid="stDataFrameDataGirdCellInput"] { color: #000000 !important; }
 
-    /* تنظیمات تب‌ها (st.tabs) */
     button[data-baseweb="tab"] {
         font-family: 'Vazirmatn', sans-serif !important;
         font-size: 12px !important;
@@ -53,221 +45,241 @@ st.markdown("""
         border-bottom-color: #1B365D !important;
     }
 
-    /* تنظیمات کامپوننت‌های نمایش شاخص (st.metric) */
-    div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"], div[data-testid="stMetricDelta"] {
+    div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
         color: #000000 !important;
         font-family: 'Vazirmatn', sans-serif !important;
     }
     
-    /* تنظیمات عناوین و نوشته‌ها */
     h1, h2, h3, h4, h5, h6, p, span, label {
         font-family: 'Vazirmatn', sans-serif !important;
         color: #000000 !important;
     }
-    
-    /* اصلاح رنگ لیبل سایدبار و ورودی‌ها به مشکی */
-    .stSlider label, .stNumberInput label {
-        color: #000000 !important;
-    }
+    .stSlider label, .stNumberInput label { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# ۳. مدیریت وضعیت داده‌ها (Session State) برای ذخیره آنی تغییرات جزئی پشت صحنه
+# ۳. مدیریت داده‌های پایه پشت صحنه در Session State (تفکیک عیار و لوکیشن‌ها)
 # -----------------------------------------------------------------------------
-if 'live_gold_price' not in st.session_state:
-    st.session_state.live_gold_price = 4500000
+if 'prices' not in st.session_state:
+    st.session_state.prices = {
+        "قیمت طلا ۱۸ عیار (گرم)": 4500000,
+        "قیمت طلا ۲۴ عیار (گرم)": 6000000,
+        "قیمت هر قطعه سکه امامی": 50000000
+    }
 
-# داده‌های جزئی هزینه‌های راه‌اندازی (CAPEX) در پشت صحنه
-if 'df_capex' not in st.session_state:
-    st.session_state.df_capex = pd.DataFrame([
-        {"کد هزینه": "CAP-01", "عنوان هزینه": "ودیعه ملک تجاری در عفیف‌آباد", "مبلغ (تومان)": 1200000000, "دسته": "ملک"},
-        {"کد هزینه": "CAP-04", "عنوان هزینه": "اجرای دکوراسیون چوب و شیشه لوکس", "مبلغ (تومان)": 380000000, "دسته": "دکوراسیون"},
-        {"کد هزینه": "CAP-07", "عنوان هزینه": "گاوصندوق فوق سنگین مکانیکی", "مبلغ (تومان)": 120000000, "دسته": "امنیت"},
-        {"کد هزینه": "CAP-08", "عنوان هزینه": "سیستم دوربین مداربسته ضدآستگمات", "مبلغ (تومان)": 80000000, "دسته": "امنیت"},
-        {"کد هزینه": "CAP-16", "عنوان هزینه": "مراسم و ایونت رسمی افتتاحیه", "مبلغ (تومان)": 60000000, "دسته": "مارکتینگ"}
+if 'df_inventory' not in st.session_state:
+    st.session_state.df_inventory = pd.DataFrame([
+        {"نوع دارایی": "طلای ۱۸ عیار (ویترین/ساخته شده)", "وزن/تعداد اولیه": 1500, "واحد": "گرم"},
+        {"نوع دارایی": "طلای ۲۴ عیار (آبشده/شمش)", "وزن/تعداد اولیه": 300, "واحد": "گرم"},
+        {"نوع دارایی": "سکه تمام امامی (پشتوانه نقدینگی)", "وزن/تعداد اولیه": 50, "واحد": "عدد"}
     ])
 
-# داده‌های جزئی هزینه‌های جاری ماهانه (OPEX)
-if 'df_opex' not in st.session_state:
-    st.session_state.df_opex = pd.DataFrame([
-        {"کد هزینه": "OPX-01", "عنوان هزینه": "اجاره‌بهای ماهانه مغازه عفیف‌آباد", "مبلغ ماهانه": 120000000, "نوع": "ثابت"},
-        {"کد هزینه": "OPX-02", "عنوان هزینه": "حقوق پایه مدیر گالری", "مبلغ ماهانه": 22000000, "نوع": "ثابت"},
-        {"کد هزینه": "OPX-03", "عنوان هزینه": "حقوق کارشناس فروش و ادمین", "مبلغ ماهانه": 16000000, "نوع": "ثابت"},
-        {"کد هزینه": "OPX-08", "عنوان هزینه": "بودجه مستمر دیجیتال مارکتینگ", "مبلغ ماهانه": 25000000, "نوع": "ثابت"},
-        {"کد هزینه": "OPX-11", "عنوان هزینه": "هزینه پذیرایی VIP و تشریفات", "مبلغ ماهانه": 5000000, "نوع": "متغیر"}
+if 'df_locations' not in st.session_state:
+    st.session_state.df_locations = pd.DataFrame([
+        {"لوکیشن": "لوکیشن الف (عفیف‌آباد شیراز)", "رهن ملک (تومان)": 1500000000, "اجاره ماهانه": 120000000, "ترافیک پاخور روزانه": 12, "نرخ تبدیل مشتری": 0.25},
+        {"لوکیشن": "لوکیشن ب (فرشته تهران)", "رهن ملک (تومان)": 4000000000, "اجاره ماهانه": 350000000, "ترافیک پاخور روزانه": 20, "نرخ تبدیل مشتری": 0.30},
+        {"لوکیشن": "لوکیشن ج (چهارباغ اصفهان)", "رهن ملک (تومان)": 2000000000, "اجاره ماهانه": 150000000, "ترافیک پاخور روزانه": 15, "نرخ تبدیل مشتری": 0.22}
+    ])
+
+if 'df_partners' not in st.session_state:
+    st.session_state.df_partners = pd.DataFrame([
+        {"شریک": "شریک اول (سرمایه‌گذار مالی)", "درصد سهم از آورده": 75.0, "درصد سهم از سود": 60.0},
+        {"شریک": "شریک دوم (مدیر اجرایی/فنی)", "درصد سهم از آورده": 25.0, "درصد سهم از سود": 40.0}
     ])
 
 # -----------------------------------------------------------------------------
-# ۴. سایدبار کنترلرهای فاندامنتال بازار طلا
+# ۴. ساختار ناوبری و تب‌های برنامه
 # -----------------------------------------------------------------------------
-st.sidebar.header("⚙️ تنظیمات زنده بازار")
-st.session_state.live_gold_price = st.sidebar.number_input("قیمت هر گرم طلای ۱۸ عیار (تومان)", min_value=1000000, value=st.session_state.live_gold_price, step=50000)
-avg_wage = st.sidebar.slider("میانگین درصد اجرت ساخت", min_value=0.0, max_value=0.50, value=0.20, step=0.01)
-gallery_markup = st.sidebar.slider("حاشیه سود ناخالص گالری (مارک‌آپ)", min_value=0.05, max_value=0.40, value=0.24, step=0.01)
-
-partner_1_cash = st.sidebar.number_input("سرمایه شریک اول (سرمایه‌گذار)", value=5500000000, step=100000000)
-partner_2_cash = st.sidebar.number_input("سرمایه شریک دوم (اجرایی)", value=1500000000, step=50000000)
-total_pool_investment = partner_1_cash + partner_2_cash
-
-# -----------------------------------------------------------------------------
-# ۵. رندر بخش اصلی اپلیکیشن با تب‌های تفکیک‌شده و تعاملی
-# -----------------------------------------------------------------------------
-st.title("👑 پلتفرم هوشمند مدیریت و مدل‌سازی مالی گالری طلا")
-st.subheader("لوکیشن استراتژیک مبنا: شیراز - خیابان عفیف‌آباد")
+st.title("👑 سیستم یکپارچه تحلیل مالی و ارزیابی سه لوکیشن گالری طلا")
+st.caption("منطبق بر ضوابط محاسبه قیمت، اجرت، سود مصوب ۷٪ اتحادیه و مالیات بر ارزش افزوده بازار ایران")
 st.markdown("---")
 
-# ایجاد تب‌ها: تب اول خروجی کلان، تب‌های بعدی برای ویرایش خطی جزئیات پشت صحنه
-tab_dash, tab_edit_capex, tab_edit_opex = st.tabs([
-    "📊 داشبورد کلان و خروجی اکسل", 
-    "🛠️ ویرایش جزئیات هزینه‌های راه‌اندازی (CAPEX)", 
-    "💸 ویرایش جزئیات هزینه‌های جاری (OPEX)"
+tab_dash, tab_inventory, tab_locations, tab_partners = st.tabs([
+    "📊 داشبورد مقایسه‌ای ۳ لوکیشن", 
+    "💎 مدیریت موجودی پشت صحنه (عیار و سکه)", 
+    "📍 تنظیمات تخصصی لوکیشن‌ها", 
+    "👥 ساختار سهم‌الشرکه و سرمایه"
 ])
 
-# --- تب مدیریت تعاملی هزینه‌های سرمایه‌ای (CAPEX) ---
-with tab_edit_capex:
-    st.subheader("پشت صحنه هزینه‌های سرمایه‌ای (CAPEX)")
-    st.caption("مقادیر یا عناوین هزینه‌ها را تغییر دهید یا سطر جدید اضافه کنید. محاسبات مالی کلان فوراً تغییر خواهند کرد.")
+# --- تب ۲: مدیریت موجودی و عیار ---
+with tab_inventory:
+    st.subheader("تخصیص دارایی اولیه گالری")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1: st.session_state.prices["قیمت طلا ۱۸ عیار (گرم)"] = st.number_input("مبنای طلا ۱۸ (تومان)", value=st.session_state.prices["قیمت طلا ۱۸ عیار (گرم)"])
+    with col_p2: st.session_state.prices["قیمت طلا ۲۴ عیار (گرم)"] = st.number_input("مبنای طلا ۲۴ (تومان)", value=st.session_state.prices["قیمت طلا ۲۴ عیار (گرم)"])
+    with col_p3: st.session_state.prices["قیمت هر قطعه سکه امامی"] = st.number_input("مبنای سکه امامی (تومان)", value=st.session_state.prices["قیمت هر قطعه سکه امامی"])
     
-    edited_capex_df = st.data_editor(
-        st.session_state.df_capex,
-        num_rows="dynamic",
-        column_config={
-            "مبلغ (تومان)": st.column_config.NumberColumn("مبلغ (تومان)", min_value=0, format="%d"),
-            "دسته": st.column_config.SelectboxColumn("دسته‌بندی", options=["ملک", "دکوراسیون", "امنیت", "تجهیزات", "مارکتینگ"])
-        },
-        key="capex_editor_v3",
-        use_container_width=True
-    )
-    st.session_state.df_capex = edited_capex_df
+    st.session_state.df_inventory = st.data_editor(st.session_state.df_inventory, use_container_width=True, key="inv_ed")
 
-# --- تب مدیریت تعاملی هزینه‌های جاری ماهانه (OPEX) ---
-with tab_edit_opex:
-    st.subheader("پشت صحنه هزینه‌های جاری ماهانه (OPEX)")
-    
-    edited_opex_df = st.data_editor(
-        st.session_state.df_opex,
-        num_rows="dynamic",
-        column_config={
-            "مبلغ ماهانه": st.column_config.NumberColumn("هزینه ماهانه (تومان)", min_value=0, format="%d"),
-            "نوع": st.column_config.SelectboxColumn("نوع هزینه", options=["ثابت", "متغیر"])
-        },
-        key="opex_editor_v3",
-        use_container_width=True
-    )
-    st.session_state.df_opex = edited_opex_df
+# --- تب ۳: تنظیمات تخصصی لوکیشن‌ها ---
+with tab_locations:
+    st.subheader("مشخصات فیزیکی و تجاری لوکیشن‌های پیشنهادی")
+    st.session_state.df_locations = st.data_editor(st.session_state.df_locations, use_container_width=True, key="loc_ed")
+
+# --- تب ۴: ساختار سهم‌الشرکه ---
+with tab_partners:
+    st.subheader("توزیع آورده مالی و سود عملیاتی بین شرکا")
+    st.session_state.df_partners = st.data_editor(st.session_state.df_partners, use_container_width=True, key="part_ed")
 
 # -----------------------------------------------------------------------------
-# ۶. موتور محاسبات زنده بر اساس جزئیات متصل به ادیتورها
+# ۵. موتور محاسبات زنده بازار ایران برای ۳ لوکیشن به صورت همزمان
 # -----------------------------------------------------------------------------
-capex_fixed_total = st.session_state.df_capex["مبلغ (تومان)"].sum()
-gold_working_capital = total_pool_investment - capex_fixed_total
-cost_per_gram_built = st.session_state.live_gold_price * (1 + avg_wage)
-initial_gold_weight_grams = gold_working_capital / cost_per_gram_built if cost_per_gram_built > 0 else 0
+# محاسبه ارزش کل انبار طلا و سکه بر اساس نرخ روز بازار ایران
+val_18 = st.session_state.df_inventory.iloc[0]["وزن/تعداد اولیه"] * st.session_state.prices["قیمت طلا ۱۸ عیار (گرم)"]
+val_24 = st.session_state.df_inventory.iloc[1]["وزن/تعداد اولیه"] * st.session_state.prices["قیمت طلا ۲۴ عیار (گرم)"]
+val_coin = st.session_state.df_inventory.iloc[2]["وزن/تعداد اولیه"] * st.session_state.prices["قیمت هر قطعه سکه امامی"]
+total_inventory_value = val_18 + val_24 + val_coin
 
-daily_traffic = 10
-conversion_rate = 0.30
-avg_invoice_weight = 5
-working_days = 26
+# پارامترهای پیش‌فرض محاسبات فیزیکی بازار طلا
+avg_ojarat_percent = 0.18  # ۱۸ درصد اجرت ساخت میانگین طلا ساخته شده
+union_profit_percent = 0.07  # ۷ درصد سود مصوب گالری داران
+vat_percent = 0.09  # ۹ درصد مالیات بر ارزش افزوده روی اجرت و سود
 
-monthly_sales_weight_grams = daily_traffic * conversion_rate * avg_invoice_weight * working_days
-sell_price_per_gram = cost_per_gram_built * (1 + gallery_markup)
-monthly_revenue = monthly_sales_weight_grams * sell_price_per_gram
+location_results = []
 
-annual_revenue_y1 = monthly_revenue * 12
-annual_cogs_y1 = annual_revenue_y1 / (1 + gallery_markup)
-annual_gross_profit_y1 = annual_revenue_y1 - annual_cogs_y1
+for idx, row in st.session_state.df_locations.iterrows():
+    loc_name = row["لوکیشن"]
+    rahn = row["رهن ملک (تومان)"]
+    rent_monthly = row["اجاره ماهانه"]
+    traffic = row["ترافیک پاخور روزانه"]
+    conv_rate = row["نرخ تبدیل مشتری"]
+    
+    # کل هزینه اولیه راه اندازی این لوکیشن (رهن ملک + دکوراسیون فرضی ۵۰۰ میلیونی + ارزش انبار طلا)
+    total_startup_cost = rahn + 500000000 + total_inventory_value
+    
+    # محاسبه حجم معاملات ماهانه (فروش طلای ۱۸ عیار ساخته شده)
+    # ۲۶ روز کاری در ماه، میانگین فاکتور هر مشتری: ۶ گرم
+    monthly_sales_grams = traffic * conv_rate * 6 * 26
+    
+    # قیمت پایه طلا مبدا معاملات
+    base_gold_cost = monthly_sales_grams * st.session_state.prices["قیمت طلا ۱۸ عیار (گرم)"]
+    
+    # محاسبه درآمد خالص گالری مطابق فرمول اتحادیه طلا (سود ۷ درصد گالری)
+    total_ojarat_earned = base_gold_cost * avg_ojarat_percent
+    gallery_net_profit_monthly = (base_gold_cost + total_ojarat_earned) * union_profit_percent
+    
+    # مجموع کل دریافتی ماهانه گالری از مشتریان (شامل اصل طلا، اجرت، سود و مالیات)
+    vat_collected = (total_ojarat_earned + gallery_net_profit_monthly) * vat_percent
+    total_monthly_revenue_from_customers = base_gold_cost + total_ojarat_earned + gallery_net_profit_monthly + vat_collected
+    
+    # هزینه های جاری ماهانه (اوپکس) = اجاره ملک + ۱۰۰ میلیون هزینه‌های پرسنل و مارکتینگ ثابت
+    total_monthly_opex = rent_monthly + 100000000
+    
+    # سود خالص ماهانه پس از کسر اوپکس گالری
+    final_monthly_net_profit = gallery_net_profit_monthly - total_monthly_opex
+    final_annual_net_profit = final_monthly_net_profit * 12
+    
+    # شاخص سرعت گردش دارایی (Gold Turnover Velocity) = میزان وزن طلای فروخته شده سالانه تقسیم بر کل موجودی اولیه انبار طلا
+    total_yearly_sales_grams = monthly_sales_grams * 12
+    inventory_turnover_velocity = total_yearly_sales_grams / st.session_state.df_inventory.iloc[0]["وزن/تعداد اولیه"]
+    
+    # نرخ بازگشت سرمایه
+    roi = (final_annual_net_profit / total_startup_cost) * 100 if total_startup_cost > 0 else 0
+    
+    location_results.append({
+        "لوکیشن": loc_name,
+        "سرمایه اولیه کل (تومان)": total_startup_cost,
+        "فروش ماهانه طلا (گرم)": monthly_sales_grams,
+        "درآمد ناخالص ماهانه (تومان)": gallery_net_profit_monthly,
+        "هزینه جاری ماهانه (تومان)": total_monthly_opex,
+        "سود خالص ماهانه (تومان)": final_monthly_net_profit,
+        "سرعت گردش دارایی طلا (بار در سال)": inventory_turnover_velocity,
+        "نرخ بازگشت سرمایه (ROI)": roi
+    })
 
-total_monthly_opex = st.session_state.df_opex["مبلغ ماهانه"].sum()
-annual_opex_y1 = total_monthly_opex * 12
+df_res = pd.DataFrame(location_results)
 
-ebitda_y1 = annual_gross_profit_y1 - annual_opex_y1
-net_profit_y1 = ebitda_y1 * 0.85
-roi_y1 = (net_profit_y1 / total_pool_investment) * 100 if total_pool_investment > 0 else 0
-payback_period_years = total_pool_investment / net_profit_y1 if net_profit_y1 > 0 else 0
-
-# --- رندر محتوای تب اصلی داشبورد (نمایش نتایج زنده با فونت جدید) ---
+# --- تب ۱: نمایش داشبورد کلان مقایسه‌ای ---
 with tab_dash:
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("کل نقدینگی پروژه", f"{total_pool_investment:,.0f} تومان")
-    with col2:
-        st.metric("شارژ اولیه انبار طلا", f"{gold_working_capital:,.0f} تومان")
-    with col3:
-        st.metric("وزن طلای موجودی اولیه", f"{initial_gold_weight_grams:,.1f} گرم")
-    with col4:
-        st.metric("پیش‌بینی درآمد سال اول", f"{annual_revenue_y1:,.0f} تومان")
-
-    col5, col6, col7, col8 = st.columns(4)
-    with col5:
-        st.metric("سود خالص سال اول (پس از مالیات)", f"{net_profit_y1:,.0f} تومان")
-    with col6:
-        st.metric("نرخ بازگشت سرمایه (ROI)", f"{roi_y1:.1f}%")
-    with col7:
-        st.metric("دوره بازگشت سرمایه", f"{payback_period_years * 12:.1f} ماه")
-    with col8:
-        st.metric("قیمت تمام شده هر گرم", f"{cost_per_gram_built:,.0f} تومان")
+    st.subheader("⚡ نتایج ارزیابی و مقایسه همزمان سه لوکیشن تجاری")
+    
+    # نمایش کاردهای KPI تفکیک دارایی کلان انبار
+    c1, c2, c3 = st.columns(3)
+    with c1: st.metric("کل ارزش انبار طلا و سکه شما", f"{total_inventory_value:,.0f} تومان")
+    with c2: st.metric("موجودی طلا ۱۸ عیار ویترین", f"{st.session_state.df_inventory.iloc[0]['وزن/تعداد اولیه']:,.0f} گرم")
+    with c3: st.metric("پشتوانه سکه امامی گالری", f"{st.session_state.df_inventory.iloc[2]['وزن/تعداد اولیه']:,.0f} عدد")
+    
+    st.markdown("---")
+    
+    # ایجاد مقایسه ستونی لوکیشن‌ها جهت سهولت تصمیم‌گیری
+    cols_loc = st.columns(3)
+    for idx, row in df_res.iterrows():
+        with cols_loc[idx]:
+            st.markdown(f"### 📍 {row['لوکیشن']}")
+            st.metric("سود خالص ماهانه", f"{row['سود خالص ماهانه (تومان)']:,.0f} تومان")
+            st.metric("نرخ بازگشت سرمایه (ROI)", f"{row['نرخ بازگشت سرمایه (ROI)']:.1f}%")
+            st.metric("سرعت گردش دارایی انبار", f"{row['سرعت گردش دارایی طلا (بار در سال)']:.2f} بار در سال")
+            st.metric("وزن فروش ماهانه طلا", f"{row['فروش ماهانه طلا (گرم)']:,.1f} گرم")
+            st.markdown("---")
+            
+            # سهم سود شریک اول و دوم در این لوکیشن
+            p1_profit = row['سود خالص ماهانه (تومان)'] * (st.session_state.df_partners.iloc[0]['درصد سهم از سود'] / 100)
+            p2_profit = row['سود خالص ماهانه (تومان)'] * (st.session_state.df_partners.iloc[1]['درصد سهم از سود'] / 100)
+            st.write(f"🔹 سهم سود ماهانه شریک اول: {p1_profit:,.0f} تومان")
+            st.write(f"🔹 سهم سود ماهانه شریک دوم: {p2_profit:,.0f} تومان")
 
     st.markdown("---")
-    st.write("### 📥 دریافت فایل مدل تجاری هماهنگ شده")
-    
-    # تابع تولید اکسل پویا بر اساس مقادیر جدید جدول‌ها
-    def generate_excel():
+    st.subheader("📥 دانلود پکیج تجاری و اکسل یکپارچه (Merged Architecture)")
+    st.info("با کلیک بر روی دکمه زیر، فایل اکسل جامع طراحی شده که تمامی شیت‌ها را در یک قالب ساختاریافته مرج کرده است، تولید و دانلود خواهد شد.")
+
+    # تابع تولید فایل اکسل کاملاً ادغام شده و تجمیعی
+    def generate_unified_excel():
         output = io.BytesIO()
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "خلاصه مدل مالی"
+        ws.title = "مدل ادغام شده مالی گالری طلا"
         ws.views.sheetView[0].showGridLines = True
         
-        # استایل‌ها
-        font_title = Font(name='Calibri', size=16, bold=True, color='FFFFFF')
         font_header = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
         font_data = Font(name='Calibri', size=11, bold=False, color='000000')
-        fill_title = PatternFill(start_color='1B365D', end_color='1B365D', fill_type='solid')
-        fill_header = PatternFill(start_color='D4AF37', end_color='D4AF37', fill_type='solid')
+        fill_header = PatternFill(start_color='1B365D', end_color='1B365D', fill_type='solid')
+        fill_sub = PatternFill(start_color='D4AF37', end_color='D4AF37', fill_type='solid')
         
-        ws.merge_cells('A1:D1')
-        ws['A1'] = "گزارش شبیه‌سازی و مدل‌سازی مالی گالری طلا"
-        ws['A1'].font = font_title
-        ws['A1'].fill = fill_title
-        ws['A1'].alignment = Alignment(horizontal='center')
-        
-        headers = ["شاخص مالی", "مقدار محاسباتی", "واحد", "توضیحات استراتژیک"]
-        for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=3, column=col_num)
-            cell.value = header
+        # ۱. بخش اطلاعات تخصیص دارایی انبار
+        ws.cell(row=1, column=1, value="بخش اول: ساختار تخصیص دارایی و موجودی عیار طلا").font = Font(name='Calibri', size=12, bold=True)
+        headers_inv = ["نوع دارایی پشت صحنه", "وزن / تعداد اولیه", "واحد سنجش"]
+        for c_idx, h in enumerate(headers_inv, 1):
+            cell = ws.cell(row=2, column=c_idx, value=h)
             cell.font = font_header
             cell.fill = fill_header
-            cell.alignment = Alignment(horizontal='center')
             
-        data = [
-            ["کل سرمایه گذاری اولیه", total_pool_investment, "تومان", "مجموع آورده شرکا"],
-            ["سرمایه در گردش طلا", gold_working_capital, "تومان", "سرمایه مصرفی برای خرید طلا بعد از کسر کاپکس"],
-            ["حجم طلای اولیه انبار", initial_gold_weight_grams, "گرم", "موجودی اولیه ویترین"],
-            ["هزینه های راه‌اندازی (CAPEX)", capex_fixed_total, "تومان", "مجموع هزینه‌های ثابت سخت‌افزاری"],
-            ["هزینه های جاری سالانه (OPEX)", annual_opex_y1, "تومان", "مجموع کل هزینه‌های عملیاتی سال اول"],
-            ["سود خالص سال اول", net_profit_y1, "تومان", "پس از کسر هزینه و مالیات فرضی"],
-            ["نرخ بازگشت سرمایه (ROI)", roi_y1 / 100, "درصد", "بازدهی خالص سال اول نسبت به سرمایه"],
-        ]
+        for r_idx, row in st.session_state.df_inventory.iterrows():
+            ws.cell(row=r_idx+3, column=1, value=row["نوع دارایی"]).font = font_data
+            ws.cell(row=r_idx+3, column=2, value=row["وزن/تعداد اولیه"]).font = font_data
+            ws.cell(row=r_idx+3, column=3, value=row["واحد"]).font = font_data
+            
+        # ۲. بخش ادغام شده ارزیابی مقایسه‌ای ۳ لوکیشن بازار ایران
+        start_row_loc = 8
+        ws.cell(row=start_row_loc, column=1, value="بخش دوم: خروجی ارزیابی و مدل مالی مقایسه‌ای سه لوکیشن").font = Font(name='Calibri', size=12, bold=True)
         
-        for row_idx, row_data in enumerate(data, 4):
-            for col_idx, value in enumerate(row_data, 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                cell.value = value
-                cell.font = font_data
-                if col_idx == 2:
-                    if isinstance(value, float) and value < 1.0:
-                        cell.number_format = '0.0%'
-                    else:
-                        cell.number_format = '#,##0'
-                        
+        headers_loc = ["عنوان لوکیشن تجاری", "سرمایه اولیه کل (تومان)", "فروش طلا (گرم/ماه)", "درآمد ناخالص (ماه)", "هزینه جاری (ماه)", "سود خالص ماهانه (تومان)", "سرعت گردش انبار طلا (بار/سال)", "بازدهی سرمایه (ROI)"]
+        for c_idx, h in enumerate(headers_loc, 1):
+            cell = ws.cell(row=start_row_loc+1, column=c_idx, value=h)
+            cell.font = font_header
+            cell.fill = fill_sub
+            
+        for r_idx, row in df_res.iterrows():
+            current_r = start_row_loc + 2 + r_idx
+            ws.cell(row=current_r, column=1, value=row["لوکیشن"]).font = font_data
+            ws.cell(row=current_r, column=2, value=row["سرمایه اولیه کل (تومان)"]).number_format = '#,##0'
+            ws.cell(row=current_r, column=3, value=row["فروش ماهانه طلا (گرم)"]).number_format = '#,##0.0'
+            ws.cell(row=current_r, column=4, value=row["درآمد ناخالص ماهانه (تومان)"]).number_format = '#,##0'
+            ws.cell(row=current_r, column=5, value=row["هزینه جاری ماهانه (تومان)"]).number_format = '#,##0'
+            ws.cell(row=current_r, column=6, value=row["سود خالص ماهانه (تومان)"]).number_format = '#,##0'
+            ws.cell(row=current_r, column=7, value=row["سرعت گردش دارایی طلا (بار در سال)"]).number_format = '0.00'
+            ws.cell(row=current_r, column=8, value=row["نرخ بازگشت سرمایه (ROI)"] / 100).number_format = '0.0%'
+            
+            for c in range(2, 9):
+                ws.cell(row=current_r, column=c).font = font_data
+
         wb.save(output)
         return output.getvalue()
 
-    excel_data = generate_excel()
+    excel_data = generate_unified_excel()
     st.download_button(
-        label="📥 دانلود پکیج کامل مدل مالی (Excel)",
+        label="📥 دانلود فایل اکسل یکپارچه و تجمیعی (Merged Structural Data)",
         data=excel_data,
-        file_name="Gold_Gallery_Financial_Model.xlsx",
+        file_name="Unified_Gold_Gallery_Model.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
